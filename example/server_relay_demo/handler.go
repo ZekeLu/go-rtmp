@@ -132,7 +132,7 @@ func (h *Handler) OnAudio(timestamp uint32, payload io.Reader) error {
 		audio.Data = buf
 		tag := &flvtag.FlvTag{
 			TagType:   flvtag.TagTypeAudio,
-			Timestamp: h.startTimeStamp,
+			Timestamp: timestamp,
 			Data:      &audio,
 		}
 		_ = h.pub.Publish(tag)
@@ -148,7 +148,7 @@ func (h *Handler) OnAudio(timestamp uint32, payload io.Reader) error {
 		audio.Data = h.Buf
 		tag := &flvtag.FlvTag{
 			TagType:   flvtag.TagTypeAudio,
-			Timestamp: h.startTimeStamp,
+			Timestamp: timestamp,
 			Data:      &audio,
 		}
 
