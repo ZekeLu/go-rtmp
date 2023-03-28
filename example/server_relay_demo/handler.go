@@ -24,6 +24,11 @@ type Handler struct {
 	//
 	pub *Pub
 	sub *Sub
+
+	Flag           bool
+	startTimeStamp uint32
+	lastTimeStamp  uint32
+	Buf            *bytes.Buffer
 }
 
 func (h *Handler) OnServe(conn *rtmp.Conn) {
@@ -111,18 +116,45 @@ func (h *Handler) OnAudio(timestamp uint32, payload io.Reader) error {
 	if err := flvtag.DecodeAudioData(payload, &audio); err != nil {
 		return err
 	}
+	// if flag == true, startTimeStamp Control
+	if h.Flag {
+		h.startTimeStamp = timestamp
+		h.Buf.Reset()
+	}
+	h.Flag = false
 
-	flvBody := new(bytes.Buffer)
-	if _, err := io.Copy(flvBody, audio.Data); err != nil {
+	buf := new(bytes.Buffer)
+	if _, err := io.Copy(buf, audio.Data); err != nil {
 		return err
 	}
-	audio.Data = flvBody
 
-	_ = h.pub.Publish(&flvtag.FlvTag{
-		TagType:   flvtag.TagTypeAudio,
-		Timestamp: timestamp,
-		Data:      &audio,
-	})
+	if audio.AACPacketType == 0 {
+		audio.Data = buf
+		tag := &flvtag.FlvTag{
+			TagType:   flvtag.TagTypeAudio,
+			Timestamp: h.startTimeStamp,
+			Data:      &audio,
+		}
+		_ = h.pub.Publish(tag)
+		h.Flag = true
+		return nil
+	}
+
+	h.Buf.Write(buf.Bytes())
+
+	// collect audio data into h.Buf and then publish every 0.5 seconds
+	if timestamp-h.startTimeStamp >= 500 {
+		h.lastTimeStamp = timestamp
+		audio.Data = h.Buf
+		tag := &flvtag.FlvTag{
+			TagType:   flvtag.TagTypeAudio,
+			Timestamp: h.startTimeStamp,
+			Data:      &audio,
+		}
+
+		_ = h.pub.Publish(tag)
+		h.Flag = true
+	}
 
 	return nil
 }

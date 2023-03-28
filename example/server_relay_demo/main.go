@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"io"
 	"net"
 
@@ -28,6 +29,7 @@ func main() {
 
 			h := &Handler{
 				relayService: relayService,
+				Buf:          new(bytes.Buffer),
 			}
 
 			return conn, &rtmp.ConnConfig{
